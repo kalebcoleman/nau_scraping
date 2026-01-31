@@ -9,13 +9,17 @@ The main purpose of this script is to generate the `PREFIXES` list used in the
 main `scrape.py` scraping script. When run as a standalone script, it prints
 the extracted prefixes to the console in a Python list format.
 """
+import json
 import re
-import pdfplumber
+from pathlib import Path
 from typing import List
+
+import pdfplumber
 
 # Path to the PDF file containing the course prefixes.
 # This may need to be updated if the file name or location changes.
 PDF_PATH = "Course-Numbering-and-Prefixes.pdf"
+PREFIXES_PATH = "prefixes.json"
 
 
 def extract_prefixes(pdf_path: str) -> List[str]:
@@ -63,9 +67,9 @@ if __name__ == "__main__":
     extracted_prefixes = extract_prefixes(PDF_PATH)
     print(f"Found {len(extracted_prefixes)} unique prefixes.")
 
-    # Print the prefixes in a format that can be easily copied into a Python list.
-    print("\n# Copy the list below into scrape.py")
-    print("PREFIXES = [")
-    for p in extracted_prefixes:
-        print(f'    "{p}",')
-    print("]")
+    output_path = Path(PREFIXES_PATH)
+    output_path.write_text(
+        json.dumps(extracted_prefixes, indent=2, sort_keys=False) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote prefixes to {output_path}")
