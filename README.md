@@ -96,3 +96,38 @@ This will run the scraper in headless mode and will not overwrite existing data 
     -   `term_code`: The internal term code used by the NAU website.
     -   `prefix`: The course prefix that was empty.
     -   `error`: The reason it was logged as empty (e.g., "empty").
+
+## AI Curriculum Analysis ("Rock On" Script)
+
+To identify AI-related courses and summarize the curriculum coverage, use the analysis script:
+
+```bash
+python3 ai_course_analysis.py
+```
+
+This produces:
+
+-   `nau_courses_with_ai_flag.csv`: Full course list with `is_ai_related` boolean column.
+-   `nau_courses_ai_subset.csv`: AI-related course subset (deduped by prefix + number).
+-   `nau_prefix_summary.csv`: Prefix | Total Courses | AI-Related Courses Found.
+-   `nau_gap_report.csv`: Prefixes that yielded zero results during the scrape.
+
+### Why These Keywords
+
+Based on the whiteboard session, the keywords focus on the core AI curriculum and current industry language:
+
+-   Agent, Agentic
+-   Ethics
+-   LLM, GPT, ChatGPT
+-   Deep Learning
+-   Generative AI
+-   Artificial Intelligence
+-   Machine Learning
+
+The script also applies fuzzy matching (via `thefuzz`) to catch typos or small variations in titles/descriptions.
+
+### Dependencies
+
+```bash
+pip install pandas thefuzz[speedup]
+```
