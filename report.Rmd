@@ -17,6 +17,8 @@ I scraped course data from the NAU catalog using `scrape.py`, which iterates acr
 course prefixes and terms, then writes results to `outputs/nau_courses.csv`. Any
 prefixes that returned zero results were logged to `outputs/nau_empty_prefixes.csv`.
 
+GitHub repo: [github.com/kalebcoleman/nau_course_scraping](https://github.com/kalebcoleman/nau-course-scraping)
+
 ```{r load-data}
 courses <- read.csv(file.path(data_dir, "nau_courses.csv"))
 summary_metrics <- read.csv(file.path(data_dir, "nau_summary.csv"))
@@ -70,21 +72,22 @@ Total AI related courses: `r nrow(ai_core)`
 To avoid missing relevant courses, I ran a broader search with `ai_analysis_broad.py`.
 This produces:
 
-- `nau_courses_ai_candidates.csv` (all broad candidates)
-
-```{r ai-expanded}
+```{r ai-expanded, include=FALSE}
 ai_candidates <- read.csv(file.path(data_dir, "nau_courses_ai_candidates.csv"))
 knitr::kable(
   data.frame(metric = "Broad AI candidates", value = nrow(ai_candidates)),
   row.names = FALSE
 )
 ```
+- `nau_courses_ai_candidates.csv`
+- Total AI candidates `r nrow(ai_candidates)`
 
-I manually reviewed the broad candidate list and found that most entries were
-keyword‑only matches or AI‑adjacent topics (e.g., general IT, project management, or
-non‑AI technical content). I did **not** add any new courses beyond the core list.
-
-\newpage
+I manually reviewed the broad candidate list and found a mix of true AI‑adjacent
+material and false positives. Some matches came from non‑AI contexts (for example,
+courses about teaching/learning that triggered on “learning” or “intelligent”), while
+others surfaced useful applied topics. The broad list is still valuable as a recall‑first
+screen: I can select additional AI‑adjacent courses from these 83 candidates if needed,
+but I kept the high‑confidence list at 19.
 
 ## AI-Adjacent Highlights
 
@@ -93,8 +96,8 @@ or image processing) even if they are not explicitly labeled as AI in the catalo
 
 ```{r ai-adjacent}
 adjacent_keys <- data.frame(
-  prefix = c("ART", "EE", "EE", "ME"),
-  number = c("376", "442", "542", "542"),
+  prefix = c("ART", "EE", "ME"),
+  number = c("376", "442", "542"),
   stringsAsFactors = FALSE
 )
 adjacent <- merge(adjacent_keys, courses_unique, by = c("prefix", "number"), all.x = TRUE)
@@ -110,10 +113,28 @@ set to avoid casual mentions of ethics in unrelated contexts.
 ethics <- read.csv(file.path(data_dir, "nau_courses_ethics_subset.csv"))
 
 # Show a sample to keep the report concise.
-knitr::kable(head(ethics[, c("prefix", "number", "title")], 18), row.names = FALSE)
+knitr::kable(head(ethics[, c("prefix", "number", "title")], 9), row.names = FALSE)
 ```
 
 Total ethics courses: `r nrow(ethics)`
+
+# Keyword Strategy (AI + Ethics)
+
+I used a keyword‑driven approach because the catalog provides only titles and short
+descriptions. For **AI**, I prioritized explicit phrases that reliably indicate AI
+instruction (for example, “artificial intelligence,” “machine learning,” “deep learning,”
+“computer vision,” “NLP,” “LLM/GPT”). This makes the core list high‑confidence. I also
+used a fuzzy matcher to catch small variations or typos in those same phrases.
+
+For **ethics**, I used direct ethics terms (for example, “ethics,” “bioethics,”
+“professional ethics,” “ethical decision‑making”) across both titles and descriptions.
+
+This strategy works well because:
+
+- It **minimizes false positives** in the core AI list by requiring explicit AI language.
+- It **captures real course intent** as written in the catalog (the best available data source).
+- It remains **auditable and explainable**: every flagged course can be traced back to
+  a specific keyword match, which makes manual review straightforward.
 
 # AI + Ethics Overlap
 
@@ -131,18 +152,33 @@ knitr::kable(ai_ethics, row.names = FALSE)
 
 # Conclusion
 
-This workflow provides:
+This analysis identifies a robust catalog of `r summary_metrics$value[summary_metrics$metric == "total_unique_courses"]`
+unique courses at NAU, but only `r nrow(ethics)` are ethics‑focused and only
+`r nrow(ai_core)` are high‑confidence AI courses. Relative to the full catalog, both
+ethics and AI coverage appear limited. The overlap between these two areas is minimal:
+only one course (PRM 165) is flagged as both AI‑related and ethics‑related. This points
+to a curricular gap in **AI‑specific ethics** coverage.
 
-- A **high-confidence AI core list** for reporting.
-- A **recall-first candidate list** to ensure I do not miss relevant AI courses.
-- A **dedicated ethics list** for ethics coverage.
+AI also appears outside traditional tech departments. PRM 165 (Parks & Recreation
+Management) directly addresses AI’s impact on leisure, and the PSY 305 / PSY 305H
+courses explicitly connect AI to psychology research and careers. These are important
+signals that AI concepts are reaching applied and social‑science contexts, but the
+overall count remains small.
 
-**Known limitation:** Special topics numbers (for example, `499`) are often generic in the
-catalog and do not list the full set of rotating topics offered each semester. This
-likely applies to many `599` and `699` level special topics courses as well. The catalog
-itself only exposes one generic entry for these, so the analysis cannot capture the full
-set of rotating topics by prefix.
+The “Special Topics” numbers (for example, `499`, `599`, `699`) are a black box for this
+type of scrape. The catalog often lists only a generic placeholder, so rotating AI‑related
+topics are invisible in the data. A future audit would need **manual syllabus review**
+or **interviews with department chairs** to uncover AI or AI‑ethics content taught under
+these headers.
 
-Another limitation is that the prefix list is based on the NAU
-`data/Course-Numbering-and-Prefixes.pdf`. If NAU adds or removes prefixes and the PDF is
-out of date, those changes will not appear in the scrape.
+**Strategic recommendations based on the data:**
+
+- **Curriculum development:** The broad candidate list ( `r nrow(ai_candidates)` courses )
+  shows AI‑adjacent content emerging across departments. NAU could integrate explicit
+  AI‑ethics modules into technical tracks (CS, INF, EE) to close the ethics gap.
+- **Ethics specificity:** Ethics is present across the catalog, but AI‑specific ethics is
+  rare. Treating AI‑ethics as a distinct category (not just “ethics”) would help track
+  growth in this area.
+- **Data maintenance:** The prefix list is based on `data/Course-Numbering-and-Prefixes.pdf`.
+  If NAU adds or removes prefixes and the PDF is out of date, those changes will not
+  appear in the scrape. A periodic prefix refresh should be part of future updates.
