@@ -57,7 +57,7 @@ TERM_CODES = {
 OUTPUT_DIR = "outputs"
 CSV_PATH = f"{OUTPUT_DIR}/nau_courses.csv"
 EMPTY_PREFIXES_CSV = f"{OUTPUT_DIR}/nau_empty_prefixes.csv"
-PREFIXES_PATH = "prefixes.json"
+PREFIXES_PATH = "data/prefixes.json"
 
 # Time to wait between requests to be polite to the server.
 SLEEP_TIME = 0.25

@@ -1,0 +1,144 @@
+---
+title: "NAU AI & Ethics Course Analysis"
+author: "Kaleb Coleman"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+data_dir <- "outputs"
+```
+
+# Data Collection
+
+I scraped course data from the NAU catalog using `scrape.py`, which iterates across
+course prefixes and terms, then writes results to `outputs/nau_courses.csv`. Any
+prefixes that returned zero results were logged to `outputs/nau_empty_prefixes.csv`.
+
+```{r load-data}
+courses <- read.csv(file.path(data_dir, "nau_courses.csv"))
+summary_metrics <- read.csv(file.path(data_dir, "nau_summary.csv"))
+prefix_totals <- read.csv(file.path(data_dir, "nau_prefix_totals.csv"))
+empty_prefixes <- read.csv(
+  file.path(data_dir, "nau_empty_prefixes.csv"),
+  header = FALSE
+)
+colnames(empty_prefixes) <- c("term", "term_code", "prefix", "error")
+courses_unique <- unique(courses[, c("prefix", "number", "title")])
+flags_full <- read.csv(file.path(data_dir, "nau_courses_with_flag.csv"))
+```
+
+Total unique courses (by prefix + number):
+
+```{r total-unique}
+knitr::kable(summary_metrics)
+```
+
+Sample of raw course rows (first 5):
+
+```{r sample-raw}
+knitr::kable(head(courses[, c("prefix", "number", "title")], 5))
+```
+
+Missing prefixes:
+
+```{r missing-prefixes}
+missing_prefixes <- sort(unique(empty_prefixes$prefix))
+knitr::kable(data.frame(prefix = missing_prefixes))
+```
+
+# Initial AI Analysis (High-Confidence Core)
+
+I ran a **narrow, high-precision** AI search using `ai_analysis.py`. This produces
+the core AI list (`nau_courses_ai_subset.csv`) and a full dataset with AI + ethics
+flags (`nau_courses_with_flag.csv`). The core list is treated as a benchmark for
+high-confidence AI-related courses.
+
+```{r core-ai}
+ai_core <- read.csv(file.path(data_dir, "nau_courses_ai_subset.csv"))
+knitr::kable(ai_core[, c("prefix", "number", "title")])
+```
+
+Total AI related courses: `r nrow(ai_core)`
+
+# Expanded AI Analysis (Recall-First)
+
+To avoid missing relevant courses, I ran a broader search with `ai_analysis_broad.py`.
+This produces:
+
+- `nau_courses_ai_candidates.csv` (all broad candidates)
+
+```{r ai-expanded}
+ai_candidates <- read.csv(file.path(data_dir, "nau_courses_ai_candidates.csv"))
+knitr::kable(
+  data.frame(metric = "Broad AI candidates", value = nrow(ai_candidates))
+)
+```
+
+I manually reviewed the broad candidate list and found that most entries were
+keyword‑only matches or AI‑adjacent topics (e.g., general IT, project management, or
+non‑AI technical content). I did **not** add any new courses beyond the core list.
+
+\newpage
+
+## AI-Adjacent Highlights
+
+I also highlight a few **AI‑adjacent** courses that use related methods (e.g., robotics
+or image processing) even if they are not explicitly labeled as AI in the catalog.
+
+```{r ai-adjacent}
+adjacent_keys <- data.frame(
+  prefix = c("ART", "EE", "EE", "ME"),
+  number = c("376", "442", "542", "542"),
+  stringsAsFactors = FALSE
+)
+adjacent <- merge(adjacent_keys, courses_unique, by = c("prefix", "number"), all.x = TRUE)
+knitr::kable(adjacent[, c("prefix", "number", "title")])
+```
+
+# Ethics Analysis
+
+Ethics courses were identified with `ethics_analysis.py`, using a conservative rule
+set to avoid casual mentions of ethics in unrelated contexts.
+
+```{r ethics}
+ethics <- read.csv(file.path(data_dir, "nau_courses_ethics_subset.csv"))
+
+# Show a sample to keep the report concise.
+knitr::kable(head(ethics[, c("prefix", "number", "title")], 18))
+```
+
+Total ethics courses: `r nrow(ethics)`
+
+# AI + Ethics Overlap
+
+Courses flagged as **both** AI-related and ethics-related:
+
+```{r ai-ethics-overlap}
+ai_flag <- tolower(as.character(flags_full$is_ai_related)) %in% c("true", "1", "t", "yes")
+ethics_flag <- tolower(as.character(flags_full$is_ethics_related)) %in% c("true", "1", "t", "yes")
+ai_ethics <- unique(flags_full[ai_flag & ethics_flag, c("prefix", "number", "title")])
+knitr::kable(ai_ethics, row.names = FALSE)
+```
+
+\newpage
+
+# Conclusion
+
+This workflow provides:
+
+- A **high-confidence AI core list** for reporting.
+- A **recall-first candidate list** to ensure I do not miss relevant AI courses.
+- A **dedicated ethics list** for ethics coverage.
+
+**Known limitation:** Special topics numbers (for example, `499`) are often generic in the
+catalog and do not list the full set of rotating topics offered each semester. This
+likely applies to many `599` and `699` level special topics courses as well. The catalog
+itself only exposes one generic entry for these, so the analysis cannot capture the full
+set of rotating topics by prefix.
+
+Another limitation is that the prefix list is based on the NAU
+`data/Course-Numbering-and-Prefixes.pdf`. If NAU adds or removes prefixes and the PDF is
+out of date, those changes will not appear in the scrape.

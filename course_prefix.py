@@ -18,8 +18,8 @@ import pdfplumber
 
 # Path to the PDF file containing the course prefixes.
 # This may need to be updated if the file name or location changes.
-PDF_PATH = "Course-Numbering-and-Prefixes.pdf"
-PREFIXES_PATH = "prefixes.json"
+PDF_PATH = "data/Course-Numbering-and-Prefixes.pdf"
+PREFIXES_PATH = "data/prefixes.json"
 
 
 def extract_prefixes(pdf_path: str) -> List[str]:

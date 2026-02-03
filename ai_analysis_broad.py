@@ -14,15 +14,7 @@ from pathlib import Path
 
 import pandas as pd
 
-try:
-    from thefuzz import fuzz
-except ImportError:  # pragma: no cover - runtime dependency check
-    print(
-        "Missing dependency: thefuzz. Install with: pip install thefuzz[speedup]",
-        file=sys.stderr,
-    )
-    raise SystemExit(1)
-
+# Broad patterns are grouped by label so the output can explain *why* a course matched.
 BROAD_PATTERNS: list[tuple[str, str]] = [
     ("artificial_intelligence", r"\bartificial intelligence\b"),
     ("ai", r"\bai\b"),
@@ -101,6 +93,27 @@ def max_fuzzy_score(text_norm: str, phrases: list[str]) -> int:
     return max(fuzz.partial_ratio(text_norm, phrase) for phrase in phrases)
 
 
+def best_fuzzy_match(text_norm: str, phrases: list[str]) -> tuple[int, str]:
+    if not text_norm:
+        return 0, ""
+    try:
+        from thefuzz import fuzz  # type: ignore
+    except ImportError:  # pragma: no cover - runtime dependency check
+        print(
+            "Missing dependency: thefuzz. Install with: pip install thefuzz[speedup]",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    best_score = -1
+    best_phrase = ""
+    for phrase in phrases:
+        score = fuzz.partial_ratio(text_norm, phrase)
+        if score > best_score:
+            best_score = score
+            best_phrase = phrase
+    return best_score, best_phrase
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Broad AI recall search (intentionally permissive)."
@@ -151,8 +164,11 @@ def main() -> None:
     text_series = titles + " " + descriptions
     text_norm_series = text_series.map(normalize_text)
 
-    reasons = []
-    matched = []
+    reasons: list[str] = []
+    matched: list[bool] = []
+    fuzzy_scores: list[int] = []
+    fuzzy_phrases_matched: list[str] = []
+
     for text_norm in text_norm_series:
         hits = [label for label, rx in compiled if rx.search(text_norm)]
         reason = ",".join(sorted(set(hits))) if hits else ""
@@ -161,14 +177,37 @@ def main() -> None:
 
     if args.disable_fuzzy:
         fuzzy_match = [False] * len(df)
+        fuzzy_scores = [0] * len(df)
+        fuzzy_phrases_matched = [""] * len(df)
     else:
-        fuzzy_match = [
-            max_fuzzy_score(text, fuzzy_phrases) >= args.fuzzy_threshold
-            for text in text_norm_series
-        ]
+        try:
+            from thefuzz import fuzz  # type: ignore
+        except ImportError:  # pragma: no cover - runtime dependency check
+            print(
+                "Missing dependency: thefuzz. Install with: pip install thefuzz[speedup]",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+        for text in text_norm_series:
+            score, phrase = best_fuzzy_match(text, fuzzy_phrases)
+            fuzzy_scores.append(score)
+            fuzzy_phrases_matched.append(phrase if score >= args.fuzzy_threshold else "")
+        fuzzy_match = [score >= args.fuzzy_threshold for score in fuzzy_scores]
 
     df["is_ai_candidate"] = [m or f for m, f in zip(matched, fuzzy_match)]
-    df["ai_candidate_reason"] = reasons
+
+    final_reasons: list[str] = []
+    for reason, is_fuzzy, phrase in zip(reasons, fuzzy_match, fuzzy_phrases_matched):
+        if reason:
+            final_reasons.append(reason)
+        elif is_fuzzy and phrase:
+            final_reasons.append(f"fuzzy:{phrase}")
+        else:
+            final_reasons.append("")
+
+    df["ai_candidate_reason"] = final_reasons
+    df["ai_candidate_fuzzy_phrase"] = fuzzy_phrases_matched
+    df["ai_candidate_fuzzy_score"] = fuzzy_scores
 
     subset = (
         df[df["is_ai_candidate"]]
@@ -177,6 +216,7 @@ def main() -> None:
     )
 
     subset.to_csv(output_path, index=False)
+
     print(f"Wrote {len(subset)} AI candidates to {output_path}")
 
 

@@ -18,7 +18,9 @@ The primary goal of this project is to gather a comprehensive dataset of all cou
 ```
 .
 ├── course_prefix.py         # Script to extract course prefixes from the PDF.
-├── Course-Numbering-and-Prefixes.pdf # PDF document with NAU course prefixes.
+├── data/                    # Input data (PDF + prefixes list).
+│   ├── Course-Numbering-and-Prefixes.pdf
+│   └── prefixes.json
 ├── scrape.py                # The main web scraping script.
 ├── outputs/                 # Output folder for scraper + analysis CSVs.
 │   ├── nau_courses.csv       # Scraped course data.
@@ -48,7 +50,7 @@ There are two main scripts in this project.
 
 ### 1. `course_prefix.py` (Optional)
 
-This script is used to generate the list of course prefixes from the `Course-Numbering-and-Prefixes.pdf` file. The `PREFIXES` list in `scrape.py` was generated using this script. If the course prefixes change in the future, you can re-run this script to get an updated list.
+This script is used to generate the list of course prefixes from the `data/Course-Numbering-and-Prefixes.pdf` file. The `PREFIXES` list in `scrape.py` was generated using this script. If the course prefixes change in the future, you can re-run this script to get an updated list.
 
 ```bash
 python course_prefix.py
@@ -108,7 +110,7 @@ python3 ai_analysis.py
 
 This produces (in `outputs/`):
 
--   `nau_courses_with_ai_flag.csv`: Full course list with `is_ai_related` boolean column.
+-   `nau_courses_with_flag.csv`: Full course list with `is_ai_related` and `is_ethics_related` boolean columns.
 -   `nau_courses_ai_subset.csv`: AI-related course subset (deduped by prefix + number).
 -   `nau_prefix_totals.csv`: Prefix | Total Courses (deduped by prefix + number).
 -   `nau_summary.csv`: Summary metrics (includes total unique course count).

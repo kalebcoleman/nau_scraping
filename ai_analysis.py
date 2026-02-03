@@ -6,7 +6,7 @@ Inputs:
   - Course CSV with columns: prefix, number, title, description (plus any others)
 
 Outputs:
-  - Full course list with is_ai_related boolean
+  - Full course list with is_ai_related and is_ethics_related boolean
   - AI-only subset CSV (deduped by prefix + number)
   - Prefix totals CSV (unique courses per prefix)
   - Summary CSV (total unique courses)
@@ -22,6 +22,8 @@ import argparse
 import re
 import sys
 from pathlib import Path
+
+from ethics_analysis import EthicsMatcher
 
 try:
     import pandas as pd
@@ -170,8 +172,8 @@ def main() -> None:
     parser.add_argument(
         "--fuzzy-threshold",
         type=int,
-        default=90,
-        help="Fuzzy match threshold (default: 90).",
+        default=95,
+        help="Fuzzy match threshold (default: 92).",
     )
     parser.add_argument(
         "--disable-fuzzy",
@@ -205,6 +207,7 @@ def main() -> None:
     primary_patterns = compile_patterns(PRIMARY_PATTERNS)
     secondary_patterns = compile_patterns(SECONDARY_PATTERNS)
     context_patterns = compile_patterns(CONTEXT_PATTERNS)
+    ethics_matcher = EthicsMatcher.build()
     fuzzy_phrases = [normalize_text(keyword) for keyword in FUZZY_PHRASES]
     title_series = df[args.title_col].fillna("").astype(str)
     description_series = df[args.description_col].fillna("").astype(str)
@@ -233,7 +236,13 @@ def main() -> None:
         )
         fuzzy_match = fuzzy_scores >= args.fuzzy_threshold
 
+    ethics_match = [
+        ethics_matcher.is_match(title, description)
+        for title, description in zip(title_series, description_series)
+    ]
+
     df["is_ai_related"] = keyword_match | fuzzy_match
+    df["is_ethics_related"] = ethics_match
 
     # Deduplicate by prefix + number and preserve a single AI flag per course.
     ai_flags = (
@@ -244,7 +253,7 @@ def main() -> None:
     unique_courses = (
         df.sort_values([args.prefix_col, args.number_col])
         .drop_duplicates(subset=[args.prefix_col, args.number_col])
-        .drop(columns=["is_ai_related"])
+        .drop(columns=["is_ai_related", "is_ethics_related"])
         .merge(ai_flags, on=[args.prefix_col, args.number_col], how="left")
     )
     unique_courses["is_ai_related"] = unique_courses["is_ai_related"].fillna(False)
@@ -263,7 +272,7 @@ def main() -> None:
     ai_subset = unique_courses[unique_courses["is_ai_related"]].sort_values(
         [args.prefix_col, args.number_col]
     )
-    full_output = output_dir / "nau_courses_with_ai_flag.csv"
+    full_output = output_dir / "nau_courses_with_flag.csv"
     ai_output = output_dir / "nau_courses_ai_subset.csv"
     prefix_totals_output = output_dir / "nau_prefix_totals.csv"
     summary_output = output_dir / "nau_summary.csv"
