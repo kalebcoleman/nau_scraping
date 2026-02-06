@@ -187,3 +187,5 @@ these headers.
   The “missing prefixes” table should be interpreted cautiously: it only reflects
   prefixes that returned zero results during the scrape, and it will not surface
   prefixes that exist but were omitted from the PDF source (for example, BAN, MRE, STAT).
+
+GitHub: [github.com/kalebcoleman/nau-course-scraping](https://github.com/kalebcoleman/nau-course-scraping)

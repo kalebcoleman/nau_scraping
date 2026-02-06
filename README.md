@@ -2,6 +2,8 @@
 
 This project scrapes course information from the Northern Arizona University (NAU) academic catalog website. It uses Python and Selenium to automate a web browser, navigate to the course listings, and extract details for each course.
 
+The project was completed in collaboration with NAU’s Institute of Advanced Applications of Artificial Intelligence (IAAAI), which is why the curriculum focus centers on AI and ethics.
+
 The primary goal of this project is to gather a comprehensive dataset of all courses offered at NAU for specific academic terms, including details like course prefix, number, title, description, and units.
 
 ## Features
